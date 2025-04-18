@@ -1,60 +1,95 @@
-name: CI/CD Pipeline for React App
+name: 🚀 Deploy React App to EC2 via SSH
 
 on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
 
 jobs:
-  build:
+  deploy:
+    name: Deploy to EC2
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout code
-      - name: Checkout code
-        uses: actions/checkout@v2
+    - name: Checkout Code
+      uses: actions/checkout@v4
 
-      # Set up Node.js
-      - name: Set up Node.js
-        uses: actions/setup-node@v2
-        with:
-          node-version: '16'
+    - name: Set up SSH key
+      uses: webfactory/ssh-agent@v0.5.3
+      with:
+        ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
 
-      # Install dependencies
-      - name: Install dependencies
-        run: npm install
+    - name: Copy Files to EC2
+      run: |
+        scp -i /tmp/id_rsa -o StrictHostKeyChecking=no -r . ubuntu@${{ secrets.EC2_PUBLIC_IP }}:/home/ubuntu/demo-docker
 
-      # Build the React app
-      - name: Build React app
-        run: npm run build
+    - name: Deploy to EC2
+      run: |
+        ssh -i /tmp/id_rsa -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
+          cd /home/ubuntu/demo-docker
+          
+          # Stop and remove containers using port 80
+          docker ps --filter "publish=80" -q | xargs -r docker stop
+          docker ps -a --filter "publish=80" -q | xargs -r docker rm
 
-      # Set up SSH and deploy to EC2
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.5.3
-        with:
-          ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          # Optional: remove old image (clean up)
+          docker image rm react-app || true
+
+          # Rebuild and run
+          docker build -t react-app .
+          docker run -d -p 80:80 react-app
+        EOF
+
+
+
+# name: CI/CD Pipeline for React App
+
+# on:
+#   push:
+#     branches:
+#       - main
+#   pull_request:
+#     branches:
+#       - main
+
+# jobs:
+#   build:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       # Checkout code
+#       - name: Checkout code
+#         uses: actions/checkout@v2
+
+#       # Set up Node.js
+#       - name: Set up Node.js
+#         uses: actions/setup-node@v2
+#         with:
+#           node-version: '16'
+
+#       # Install dependencies
+#       - name: Install dependencies
+#         run: npm install
+
+#       # Build the React app
+#       - name: Build React app
+#         run: npm run build
+
+#       # Set up SSH and deploy to EC2
+#       - name: Set up SSH
+#         uses: webfactory/ssh-agent@v0.5.3
+#         with:
+#           ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
       
-      - name: Copy build files to EC2
-        run: |
-          scp -i /tmp/id_rsa -o StrictHostKeyChecking=no -r build/* ubuntu@${{ secrets.EC2_PUBLIC_IP }}:/home/ubuntu/demo-docker/build
+#       - name: Copy build files to EC2
+#         run: |
+#           scp -i /tmp/id_rsa -o StrictHostKeyChecking=no -r build/* ubuntu@${{ secrets.EC2_PUBLIC_IP }}:/home/ubuntu/demo-docker/build
 
-          - name: Deploy to EC2
-          run: |
-            ssh -i /tmp/id_rsa -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
-              cd /home/ubuntu/demo-docker
-              
-              # Stop and remove containers using port 80
-              docker ps --filter "publish=80" -q | xargs -r docker stop
-              docker ps -a --filter "publish=80" -q | xargs -r docker rm
-        
-              # Optional: remove old image (clean up)
-              docker image rm react-app || true
-        
-              # Rebuild and run
-              docker build -t react-app .
-              docker run -d -p 80:80 react-app
-            EOF
-        
+#       - name: Restart React app on EC2
+#         run: |
+#           ssh -i /tmp/id_rsa -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
+#             cd /home/ubuntu/demo-docker
+#             docker build -t react-app .
+#             docker stop $(docker ps -q --filter ancestor=react-app)
+#             docker run -d -p 80:80 react-app
+#           EOF
