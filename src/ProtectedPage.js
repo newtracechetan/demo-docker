@@ -1,13 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Auth } from 'aws-amplify';
+import { getCurrentUser } from '@aws-amplify/auth'; // ✅ Modular import
 
 const ProtectedPage = () => {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    Auth.currentAuthenticatedUser()
-      .then(setUser)
-      .catch(() => setUser(null));
+    const checkUser = async () => {
+      try {
+        const currentUser = await getCurrentUser(); // ✅ New API
+        setUser(currentUser);
+      } catch {
+        setUser(null);
+      }
+    };
+
+    checkUser();
   }, []);
 
   if (!user) {
@@ -18,3 +25,26 @@ const ProtectedPage = () => {
 };
 
 export default ProtectedPage;
+
+
+
+// import React, { useState, useEffect } from 'react';
+// import { Auth } from 'aws-amplify';
+
+// const ProtectedPage = () => {
+//   const [user, setUser] = useState(null);
+
+//   useEffect(() => {
+//     Auth.currentAuthenticatedUser()
+//       .then(setUser)
+//       .catch(() => setUser(null));
+//   }, []);
+
+//   if (!user) {
+//     return <div>You must be signed in to access this page.</div>;
+//   }
+
+//   return <div>Welcome, {user.username}!</div>;
+// };
+
+// export default ProtectedPage;
