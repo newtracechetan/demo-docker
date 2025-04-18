@@ -1,4 +1,3 @@
-import logo from './logo.svg';
 import './App.css';
 
 function App() {
@@ -8,7 +7,7 @@ function App() {
     <h1> NOw you implement a CI?CD</h1>
     <h1> NOw you implement a CI?CD</h1>
      
-    </div>
+    </div>  
   );
 }
 
